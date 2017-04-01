@@ -1,0 +1,81 @@
+---
+title: "W241 Class Project - Analysis"
+output: html_notebook
+---
+
+# 1. Load libraries, data
+
+```{r}
+library(lmtest)
+library(sandwich)
+library(ggplot2)
+library(data.table)
+library(stargazer)
+library(ri)
+library(multiwayvcov)
+library(AER)
+
+d <- read.csv('~/Documents/mids-w241-final/Analysis/Combined Response Log - Combined Data.csv')
+d <- data.table(d)
+
+head(d)
+
+```
+# 2. Check data, plots, check for covariates 
+
+* Outcome variable - 1/0 Response
+* Treatment variable - 1/0 (High), 1/0 (Low) - 2 dummy variables - control, 0,0
+* Covariates  - Gender - 1/0
+              - City - 1,2,3,4
+              - Bedroom size
+              - Price
+              - Professional
+              - Same email
+              
+# 3. Analysis
+
+*Blocking - by gender, by city, bedroom?
+*Cluster - none
+*Compliance - none
+*Spillover - yes, with same email; not sure how to incorporate
+
+Basic model
+  
+    Outcome variable = alpha + B_high + B_low + covariates
+    
+Use lm, with robust SE
+
+[Pooled]
+m1 <- lm(outcome~treat1+treat2,data=d)
+stargazer(m1,type='text')
+coeftest(m1, vcovHC(m1)) # Robust se 
+
+[Blocking by gender]
+m1 <- lm(outcome~treat1+treat2+gender,data=d)
+stargazer(m1,type='text')
+coeftest(m1, vcovHC(m1)) # Robust se 
+
+[By gender, city]
+m1 <- lm(outcome~treat1+treat2+gender+city,data=d)
+stargazer(m1,type='text')
+coeftest(m1, vcovHC(m1)) # Robust se 
+
+[By gender, city,...]
+m1 <- lm(outcome~treat1+treat2+gender+city+...,data=d)
+stargazer(m1,type='text')
+coeftest(m1, vcovHC(m1)) # Robust se 
+
+Try with RI
+
+Using RI package
+y <- d$turnout
+Z <- d$treat2
+cls <- d$dormid
+
+perms <- genperms(Z, clustvar = cls)
+probs <- genprobexact(Z, clustvar = cls) # probability of treatment
+ate <- estate(y,Z,prob=probs) # estimate the ATE
+
+Ys <- genouts(y,Z,ate=0) # generate potential outcomes under sharp null of no effect
+distout <- gendist(Ys,perms, prob=probs) # generate sampling dist. under sharp null
+dispdist(distout, ate, quantiles = c(0.025, 0.975), display.plot = TRUE) # display characteristics of sampling dist. for inferenc

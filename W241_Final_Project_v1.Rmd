@@ -15,13 +15,31 @@ library(ri)
 library(multiwayvcov)
 library(AER)
 
-d <- read.csv('~/Documents/mids-w241-final/Analysis/Combined Response Log - Combined Data.csv')
+d <- read.csv('~/Documents/mids-w241-final/Analysis/Combined Log.csv')
 d <- data.table(d)
 
 head(d)
 
 ```
 # 2. Check data, plots, check for covariates 
+
+```{r}
+
+cat('Table of Outcomes:')
+table(d$outcome)
+table(d$outcome,d$city)
+table(d$outcome,d$bedrooms)
+table(d$outcome,d$treatment_assignment)
+
+#p <- ggplot(d, aes(factor(treatment_assignment), outcome))
+
+#p + geom_boxplot()
+#p + geom_hist()
+
+summary(lm(outcome~factor(treatment_assignment), data = d))
+
+```
+
 
 * Outcome variable - 1/0 Response
 * Treatment variable - 1/0 (High), 1/0 (Low) - 2 dummy variables - control, 0,0

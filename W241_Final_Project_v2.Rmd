@@ -1,9 +1,8 @@
 ---
 title: "W241 Class Project - Analysis"
 output:
-  html_document: default
   html_notebook: default
-  pdf_document: default
+  html_document: default
 ---
 
 # 1. Load libraries, data
@@ -24,8 +23,8 @@ library(AER)
 
 rm(list=ls())
 
-#d <- read.csv('~/mids-w241-final/Analysis/Combined Log.csv')
-d <- read.csv("C:/Users/Chris/OneDrive/Documents/MIDS/WS241/final/mids-w241-final/Analysis/Combined Log.csv")
+d <- read.csv('~/Documents/mids-w241-final/Analysis/Combined Log.csv')
+#d <- read.csv("C:/Users/Chris/OneDrive/Documents/MIDS/WS241/final/mids-w241-final/Analysis/Combined Log.csv")
 d <- data.table(d)
 # d <- d[complete.cases(d),] drops any row that is too incomplete - too stringent since we have some cols which are not essential
 d <- d[!is.na(no)] # Just drop row with missing values

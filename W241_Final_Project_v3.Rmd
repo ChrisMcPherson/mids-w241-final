@@ -1,9 +1,7 @@
 ---
 title: "W241 Class Project - Analysis"
 output:
-  html_document: default
   html_notebook: default
-  pdf_document: default
 ---
 
 # 1. Load libraries, data
@@ -24,8 +22,8 @@ library(AER)
 
 rm(list=ls())
 
-#d <- read.csv('~/mids-w241-final/Analysis/Combined Log.csv')
-d <- read.csv("C:/Users/Chris/OneDrive/Documents/MIDS/WS241/final/mids-w241-final/Analysis/Combined Log.csv")
+d <- read.csv('~/Documents/mids-w241-final/Analysis/Combined Log.csv')
+#d <- read.csv("C:/Users/Chris/OneDrive/Documents/MIDS/WS241/final/mids-w241-final/Analysis/Combined Log.csv")
 d <- data.table(d)
 # d <- d[complete.cases(d),] drops any row that is too incomplete - too stringent since we have some cols which are not essential
 d <- d[!is.na(no)] # Just drop row with missing values
@@ -60,6 +58,8 @@ d$assigned[is.na(d$assigned)] <- 0
 d[sent!='', compliers:=1]
 d$compliers[is.na(d$compliers)] <- 0
 ```
+
+
 # 2. Check data, do simple tables to check for balance
 
 For the most part it looks like we have a balanced dataset. 
@@ -84,12 +84,13 @@ table(d$outcome,factor(d$city))
 cat('\nTable of Outcomes (By Rooms):')
 table(d$outcome,factor(d$bedrooms))
 
-ggplot(d,aes(x=price))+geom_histogram()+facet_grid(~outcome)
+ggplot(d,aes(x=price))+geom_histogram()+facet_grid(~outcome)+labs(x="Price",y="Number") 
 
 # Sqft info has missing values => we can drop all cases (see above) but for now leave this alone
 # Similar but somewhat worse issue for professional, same.email info
 
 ```
+
 
 
 # 3. Analysis
@@ -110,6 +111,7 @@ tbl
 chisq.test(tbl)
 
 ```
+
 
 # Regression
 
@@ -171,6 +173,7 @@ coeftest(m3, vcovHC(m3)) # Robust se
 
 ```
 
+
 ## Try with RI
 
 ```{r}
@@ -221,3 +224,4 @@ prop_treated <- d[assigned == 1, mean(compliers)]
 
 sprintf("%.10f", itt / prop_treated)
 ```
+

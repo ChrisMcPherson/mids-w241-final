@@ -1,0 +1,284 @@
+---
+title: "W241 Class Project - Analysis"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+# 1. Load libraries, data
+
+Load up the data and do simple analysis. This version uses the complete dataset.
+
+```{r,error=FALSE, error=FALSE, message=FALSE, warning=FALSE, results='hide'}
+
+# Libraries
+library(lmtest)
+library(sandwich)
+library(ggplot2)
+library(data.table)
+library(stargazer)
+library(ri)
+library(multiwayvcov)
+library(AER)
+
+rm(list=ls())
+
+d <- read.csv('~/Documents/mids-w241-final/Analysis/Combined Log.csv')
+#d <- read.csv("C:/Users/Chris/OneDrive/Documents/MIDS/WS241/final/mids-w241-final/Analysis/Combined Log.csv")
+
+d <- data.table(d)
+# d <- d[complete.cases(d),] drops any row that is too incomplete - too stringent since we have some cols which are not essential
+d <- d[!is.na(no)] # Just drop row with missing values
+
+# Base data
+head(d)
+
+# Convert, transform data for analysis
+
+# Drop some cols
+d[,c('title','full_URL', 'reply_email_TO_BE_FILLED_IN_standard','posting_ID','notes') :=NULL]
+
+# Set gender = 1 for Jane
+d[treatment_assignment=='Jane_Control' | treatment_assignment=='Jane_Treat_High' | treatment_assignment=='Jane_Treat_Low',gender:=1]
+d[treatment_assignment=='John_Control' | treatment_assignment=='John_Treat_High' | treatment_assignment=='John_Treat_Low',gender:=0]
+
+# Set treatment variable = 0 for control, 1 for low, 2 for high (treatment here is continuous)
+d[treatment_assignment=='Jane_Control' | treatment_assignment=='John_Control', treatment:=0]
+d[treatment_assignment=='Jane_Treat_Low' | treatment_assignment=='John_Treat_Low', treatment:=1]
+d[treatment_assignment=='Jane_Treat_High' | treatment_assignment=='John_Treat_High', treatment:=2]
+
+# Alternatively, treat treatment types as categorical variables instead of continuous
+d[treatment_assignment=='Jane_Treat_Low' | treatment_assignment=='John_Treat_Low', low_treatment:=1]
+d[treatment_assignment=='Jane_Treat_High' | treatment_assignment=='John_Treat_High', high_treatment:=1]
+d$low_treatment[is.na(d$low_treatment)] <- 0
+d$high_treatment[is.na(d$high_treatment)] <- 0
+
+d[low_treatment==1 | high_treatment==0, assigned:=1]
+d$assigned[is.na(d$assigned)] <- 0
+
+# Capture compliers
+d[sent!='', compliers:=1]
+d$compliers[is.na(d$compliers)] <- 0
+
+# Labeling data
+d$gender <- factor(d$gender,labels = c("Male", "Female"))
+d$outcome_f <- factor(d$outcome, labels = c("No Response", "Response"))
+d$bedrooms <- factor(d$bedrooms, labels = c("1-bedroom", "2-bedroom"))
+d$treatment_f <- factor(d$treatment, labels = c("Control","Low","High"))
+  
+```
+
+
+# 2. Check data, do simple tables to check for balance
+
+For the most part it looks like we have a balanced dataset. 
+
+```{r}
+
+cat('Table of Outcomes:')
+table(d$outcome_f)
+
+cat('\nTable of Outcomes (By Gender):')
+table(d$outcome_f, d$gender)
+
+cat('\nTable of Outcomes (By Treatment):')
+table(d$outcome_f, d$treatment_f)
+
+cat('\nTable of Outcomes (By Treatment and Gender):')
+table(d$outcome_f, factor(d$treatment_assignment))
+
+cat('\nTable of Outcomes (By City):')
+table(d$outcome_f,factor(d$city))
+
+cat('\nTable of Outcomes (By Rooms):')
+table(d$outcome_f,factor(d$bedrooms))
+
+ggplot(d,aes(x=price))+geom_histogram()+facet_grid(~outcome)+labs(x="Price",y="Number") 
+
+# Sqft info has missing values => we can drop all cases (see above) but for now leave this alone
+# Similar but somewhat worse issue for professional, same.email info
+
+```
+
+# 3. Analysis
+
+# Simple Analysis 
+
+We do a chi-squared test of independence to see if the observations are independent. We cannot reject the hypothesis that the observations are indpendent. 
+
+```{r}
+
+# For Outcome and Gender
+tbl <- table(d$outcome_f,d$gender)
+tbl
+chisq.test(tbl)
+
+# On Outcome and Treatment
+tbl <- table(d$outcome_f,d$treatment)
+tbl
+chisq.test(tbl)
+
+# On Outcome and Treatment Assignment
+tbl <- table(d$outcome_f,factor(d$treatment_assignment))
+tbl
+chisq.test(tbl)
+
+```
+
+
+# Regression
+
+We run regression on treatment as a factor (control, low, high) with and without gender as another factor. Other co-variates are added including city, price, bedrooms. 
+
+Basic model
+  
+    Outcome variable = alpha + B_high + B_low + gender + covariates
+  
+
+```{r}
+
+# First we treat treatment as a continous variable
+
+# Model 1a - Basic model  
+m1 <- lm(outcome~treatment,data=d)
+stargazer(m1,type='text')
+coeftest(m1, vcovHC(m1)) # Robust se 
+
+# Model 2a - Treatment & gender
+m2 <- lm(outcome~treatment*gender,data=d)
+stargazer(m2,type='text')
+coeftest(m2, vcovHC(m2)) # Robust se 
+
+# Model 3a - Treatment & gender + covariates
+m3 <- lm(outcome~treatment*gender+factor(city)+factor(bedrooms)+price,data=d)
+stargazer(m3,type='text')
+coeftest(m3, vcovHC(m3)) # Robust se 
+
+# Next we treat treatment as a categorical variable (effect might not be linear)
+
+# Model 1b - Basic model  
+m4 <- lm(outcome~treatment_f,data=d)
+stargazer(m4,type='text')
+coeftest(m4, vcovHC(m4)) # Robust se 
+
+# Model 2b - Treatment & gender
+m5 <- lm(outcome~treatment_f*gender,data=d)
+stargazer(m5,type='text')
+coeftest(m5, vcovHC(m5)) # Robust se 
+
+# Model 3b - Treatment & gender + covariates
+m6 <- lm(outcome~treatment_f*gender+factor(city)+factor(bedrooms)+price,data=d)
+stargazer(m6,type='text')
+coeftest(m6, vcovHC(m6)) # Robust se 
+
+```
+In all models, the coefficients on treatment, whether continous or as a factor, are not statistically significant. If we add gender, there is also no evidence of a the interaction term being statistically significant. Thus, there is no evidence that exclamation points have influenced the likelihood of receiving a response. 
+
+
+```{r}
+
+# We try an alternative specification for treatment (as dummy variables)
+
+# Model 1c - Basic model
+m7 <- lm(outcome ~ low_treatment + high_treatment,data=d)                                                               
+stargazer(m7,type='text')
+coeftest(m7, vcovHC(m7)) # Robust se 
+
+# Model 2c - Treatment & gender
+m8 <- lm(outcome~low_treatment + high_treatment*gender,data=d)
+stargazer(m8,type='text')
+coeftest(m8, vcovHC(m8)) # Robust se 
+
+# Model 3c - Treatment & gender + covariates
+m9 <- lm(outcome~low_treatment + high_treatment + gender + factor(city) + factor(bedrooms) + price,data=d)
+stargazer(m9,type='text')
+coeftest(m9, vcovHC(m9)) # Robust se 
+
+
+```
+
+The coefficients on treatment are also statistically insignificant. There is no evidence that exclamation points have an effect. 
+
+
+## Randomization Inference
+
+Next we use randomization inference (assuming a Sharp Null of No Effect) to understand if our observation is consistent with an empirical null distribution. For this, we combine low and high treatment into treatment (since we have not learned more complex fixes for heterogenous effects).
+
+```{r}
+
+# Combining treatments
+di <- d
+di[treatment==2,treatment:=1]
+
+
+# Define distributions
+y <- di$outcome
+Z <- di$treatment
+blk1 <- as.numeric(di$gender) # We block by gender
+blk2 <- as.numeric(di$city) # Block by city
+blk3 <- as.numeric(di$bedrooms)
+
+# By gender  
+perms <- genperms(Z, clustvar = NULL, blockvar = blk1)
+probs <- genprobexact(Z, clustvar = NULL, blockvar = blk1) # probability of treatment
+ate <- estate(y,Z,prob=probs) # estimate the ATE
+
+Ys <- genouts(y,Z,ate=0) # generate potential outcomes under sharp null of no effect
+distout <- gendist(Ys,perms, prob=probs) # generate sampling dist. under sharp null
+dispdist(distout, ate, quantiles = c(0.025, 0.975), display.plot = TRUE) # display characteristics of sampling dist. for inference
+
+# By city  
+perms <- genperms(Z, clustvar = NULL, blockvar = blk2)
+probs <- genprobexact(Z, clustvar = NULL, blockvar = blk2) # probability of treatment
+ate <- estate(y,Z,prob=probs) # estimate the ATE
+
+Ys <- genouts(y,Z,ate=0) # generate potential outcomes under sharp null of no effect
+distout <- gendist(Ys,perms, prob=probs) # generate sampling dist. under sharp null
+dispdist(distout, ate, quantiles = c(0.025, 0.975), display.plot = TRUE) # display characteristics of sampling dist. for inference
+
+# By bedroom  
+perms <- genperms(Z, clustvar = NULL, blockvar = blk3)
+probs <- genprobexact(Z, clustvar = NULL, blockvar = blk3) # probability of treatment
+ate <- estate(y,Z,prob=probs) # estimate the ATE
+
+Ys <- genouts(y,Z,ate=0) # generate potential outcomes under sharp null of no effect
+distout <- gendist(Ys,perms, prob=probs) # generate sampling dist. under sharp null
+dispdist(distout, ate, quantiles = c(0.025, 0.975), display.plot = TRUE) # display characteristics of sampling dist. for inference
+
+
+```
+
+Once again, we cannot reject the null hypothesis of no effect. 
+
+## Other Analysis
+
+## CACE
+```{r}
+# Using Models # NEEDS WORK
+itt_fit <- lm(outcome ~ treatment, data = d)
+summary(itt_fit)
+coeftest(itt_fit, vcovHC(itt_fit))
+
+itt_d_fit <- lm(compliers ~ treatment, data = d)
+coeftest(itt_d_fit)
+coeftest(itt_d_fit,vcovHC(itt_d_fit))
+
+itt_fit$coefficients[2] / itt_d_fit$coefficients[2]
+```
+
+
+```{r}
+# Manually compute CACE
+itt <- d[, mean(outcome[assigned == 1]) - mean(outcome[assigned == 0])]
+
+prop_treated <- d[ , mean(compliers/assigned, na.rm = T)]
+prop_treated <- d[assigned == 1, mean(compliers)]
+
+sprintf("%.10f", itt / prop_treated)
+```
+
+# 4. Conclusion
+
+Despite running a few different models, we find no evidencce that the number of exclamation points affected response rates to our email. 
+
+

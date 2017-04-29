@@ -57,6 +57,12 @@ d$assigned[is.na(d$assigned)] <- 0
 # Capture compliers
 d[sent!='', compliers:=1]
 d$compliers[is.na(d$compliers)] <- 0
+
+# Labeling data
+d$gender <- factor(d$gender,labels = c("Male", "Female"))
+d$outcome <- factor(d$outcome, labels = c("No Response", "Response"))
+d$bedrooms <- factor(d$bedrooms, labels = c("1-bedroom", "2-bedroom"))
+
 ```
 
 

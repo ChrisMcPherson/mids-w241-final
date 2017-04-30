@@ -27,7 +27,7 @@ d <- read.csv('~/Documents/mids-w241-final/Analysis/Combined Log.csv')
 #d <- read.csv("C:/Users/Chris/OneDrive/Documents/MIDS/WS241/final/mids-w241-final/Analysis/Combined Log.csv")
 
 d <- data.table(d)
-# d <- d[complete.cases(d),] drops any row that is too incomplete - too stringent since we have some cols which are not essential
+# d <- d[complete.cases(d),] drops any row that is incomplete - too stringent since we have some cols which are not essential
 d <- d[!is.na(no)] # Just drop row with missing values
 
 # Base data
@@ -93,7 +93,7 @@ table(d$outcome_f,factor(d$city))
 cat('\nTable of Outcomes (By Rooms):')
 table(d$outcome_f,factor(d$bedrooms))
 
-ggplot(d,aes(x=price))+geom_histogram()+facet_grid(~outcome)+labs(x="Price",y="Number") 
+ggplot(d,aes(x=price))+geom_histogram()+facet_grid(~outcome_f)+labs(x="Price",y="Number") 
 
 # Sqft info has missing values => we can drop all cases (see above) but for now leave this alone
 # Similar but somewhat worse issue for professional, same.email info
@@ -245,6 +245,16 @@ Ys <- genouts(y,Z,ate=0) # generate potential outcomes under sharp null of no ef
 distout <- gendist(Ys,perms, prob=probs) # generate sampling dist. under sharp null
 dispdist(distout, ate, quantiles = c(0.025, 0.975), display.plot = TRUE) # display characteristics of sampling dist. for inference
 
+#P-value for actual data
+p.val.actual = sum(abs(distout) > ate) / length(distout)
+p.val.actual
+
+#get respnse rate by treatment or control
+actual.response.rate.by.treatment <- di[, mean(outcome), by = c("treatment")]
+actual.response.rate.by.treatment
+
+di[, sum(outcome > -100), by = c("treatment")]
+
 
 ```
 
@@ -275,6 +285,42 @@ prop_treated <- d[ , mean(compliers/assigned, na.rm = T)]
 prop_treated <- d[assigned == 1, mean(compliers)]
 
 sprintf("%.10f", itt / prop_treated)
+```
+
+# Added by NC. Work to find treatment response rate required to reject null
+
+```{r}
+#create a new temp column of outcomes where the share of responses is n%
+
+#To see what treatment response rate is required for significant result, adjust this variable.
+#Found that a treatment response rate of about 0.6 would be required to observe significant result
+treatment.response.rate <- 0.6
+di$hypothetical.outcomes.temp <- sample(c(0,1), size = nrow(d), replace = TRUE, prob = c(1-treatment.response.rate, treatment.response.rate))
+
+#create new outcome column that takes original outcomes for control group, but new hypothetical outcomes with adjusted response rate for treatment rows
+di$hypothetical.outcomes = d$outcome
+di[treatment==1, hypothetical.outcomes:=hypothetical.outcomes.temp]
+
+fake.response.rate.by.treatment <- di[, mean(hypothetical.outcomes), by = c("treatment")]
+fake.response.rate.by.treatment
+
+#run RI using the fake data
+y.fake <- di$hypothetical.outcomes
+Z.fake <- di$treatment
+cls.fake <- di$gender
+blk.fake <- di$city
+
+perms.fake <- genperms(Z.fake, clustvar = NULL, blockvar = blk.fake)
+probs.fake <- genprobexact(Z.fake, clustvar = NULL, blockvar = blk.fake) # probability of treatment
+ate.fake <- estate(y.fake,Z.fake,prob=probs.fake) # estimate the ATE
+
+Ys.fake <- genouts(y.fake,Z.fake,ate=0) # generate potential outcomes under sharp null of no effect
+distout.fake <- gendist(Ys.fake,perms.fake, prob=probs.fake) # generate sampling dist. under sharp null
+dispdist(distout.fake, ate.fake, quantiles = c(0.025, 0.975), display.plot = TRUE) # display characteristics of sampling dist. for inference
+
+#P-value for actual data
+p.val.fake = sum(abs(distout.fake) > ate.fake) / length(distout.fake)
+p.val.fake
 ```
 
 # 4. Conclusion

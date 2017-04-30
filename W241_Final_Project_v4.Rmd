@@ -23,12 +23,12 @@ library(AER)
 
 rm(list=ls())
 
-d <- read.csv('~/Documents/mids-w241-final/Analysis/Combined Log.csv')
-#d <- read.csv("C:/Users/Chris/OneDrive/Documents/MIDS/WS241/final/mids-w241-final/Analysis/Combined Log.csv")
+#d <- read.csv('~/Documents/mids-w241-final/Analysis/Combined Log.csv')
+d <- read.csv("C:/Users/Chris/OneDrive/Documents/MIDS/WS241/final/mids-w241-final/Analysis/Combined Log.csv")
 
 d <- data.table(d)
 # d <- d[complete.cases(d),] drops any row that is too incomplete - too stringent since we have some cols which are not essential
-d <- d[!is.na(no)] # Just drop row with missing values
+#d <- d[!is.na(no)] # Just drop row with missing values
 
 # Base data
 head(d)
@@ -70,6 +70,22 @@ d$treatment_f <- factor(d$treatment, labels = c("Control","Low","High"))
 
 
 # 2. Check data, do simple tables to check for balance
+
+Recode missing covariate values
+```{r}
+# Recode missing sqft with mean of cluster (city)
+d[, Mean:=mean(sqft, na.rm=TRUE), by=city]
+d[is.na(sqft)]$sqft <- d[is.na(sqft)]$Mean
+d[,c('Mean') :=NULL]
+
+```
+Remove duplicate emails
+
+```{r}
+# If duplicate, only retain first email sent
+d <- d[duplicate_email == 0]
+```
+
 
 For the most part it looks like we have a balanced dataset. 
 
@@ -180,18 +196,18 @@ In all models, the coefficients on treatment, whether continous or as a factor, 
 # We try an alternative specification for treatment (as dummy variables)
 
 # Model 1c - Basic model
-m7 <- lm(outcome ~ low_treatment + high_treatment,data=d)                                                               
-stargazer(m7,type='text')
+m7 <- lm(outcome ~ low_treatment + high_treatment, data=d)                                                               
+stargazer(m7, type='text')
 coeftest(m7, vcovHC(m7)) # Robust se 
 
 # Model 2c - Treatment & gender
-m8 <- lm(outcome~low_treatment + high_treatment*gender,data=d)
-stargazer(m8,type='text')
+m8 <- lm(outcome ~ low_treatment + high_treatment*gender, data=d)
+stargazer(m8, type='text')
 coeftest(m8, vcovHC(m8)) # Robust se 
 
 # Model 3c - Treatment & gender + covariates
-m9 <- lm(outcome~low_treatment + high_treatment + gender + factor(city) + factor(bedrooms) + price,data=d)
-stargazer(m9,type='text')
+m9 <- lm(outcome ~ low_treatment + high_treatment + gender + factor(city) + factor(bedrooms) + price, data=d)
+stargazer(m9, type='text')
 coeftest(m9, vcovHC(m9)) # Robust se 
 
 

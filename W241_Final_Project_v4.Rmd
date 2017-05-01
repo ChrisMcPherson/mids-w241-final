@@ -1,8 +1,8 @@
 ---
 title: "W241 Class Project - Analysis"
 output:
-  html_document: default
   html_notebook: default
+  html_document: default
 ---
 
 # 1. Load libraries, data
@@ -23,17 +23,14 @@ library(AER)
 
 rm(list=ls())
 
-#d <- read.csv('~/Documents/mids-w241-final/Analysis/Combined Log.csv')
-d <- read.csv("C:/Users/Chris/OneDrive/Documents/MIDS/WS241/final/mids-w241-final/Analysis/Combined Log.csv")
+d <- read.csv('~/Documents/mids-w241-final/Analysis/Combined Log.csv')
+#d <- read.csv("C:/Users/Chris/OneDrive/Documents/MIDS/WS241/final/mids-w241-final/Analysis/Combined Log.csv")
 
 d <- data.table(d)
-<<<<<<< HEAD
 # d <- d[complete.cases(d),] drops any row that is incomplete - too stringent since we have some cols which are not essential
 d <- d[!is.na(no)] # Just drop row with missing values
-=======
 # d <- d[complete.cases(d),] drops any row that is too incomplete - too stringent since we have some cols which are not essential
 #d <- d[!is.na(no)] # Just drop row with missing values
->>>>>>> 3ddecc6c5963e047673520317d7f05449f2a927a
 
 # Base data
 head(d)
@@ -61,23 +58,28 @@ d$high_treatment[is.na(d$high_treatment)] <- 0
 d[low_treatment==1 | high_treatment==0, assigned:=1]
 d$assigned[is.na(d$assigned)] <- 0
 
-# Capture compliers
-d[sent!='', compliers:=1]
-d$compliers[is.na(d$compliers)] <- 0
+# Capture complier
+#d[sent!='', compliers:=1]
+#d$compliers[is.na(d$compliers)] <- 0
 
 # Labeling data
 d$gender <- factor(d$gender,labels = c("Male", "Female"))
 d$outcome_f <- factor(d$outcome, labels = c("No Response", "Response"))
 d$bedrooms <- factor(d$bedrooms, labels = c("1-bedroom", "2-bedroom"))
+d$professional <- factor(d$professional, labels = c("Non-professional", "Professional"))
 d$treatment_f <- factor(d$treatment, labels = c("Control","Low","High"))
+
+head(d)
   
 ```
 
 
 # 2. Check data, do simple tables to check for balance
 
-Recode missing covariate values
+Recode missing sqft values. It's not necessary but we use this in some of our model specifications.
+
 ```{r}
+
 # Recode missing sqft with mean of cluster (city)
 d[, Mean:=mean(sqft, na.rm=TRUE), by=city]
 d[is.na(sqft)]$sqft <- d[is.na(sqft)]$Mean
@@ -87,7 +89,7 @@ d[,c('Mean') :=NULL]
 Remove duplicate emails
 
 ```{r}
-# If duplicate, only retain first email sent
+# If duplicate, only retain first email sent, sets up for exploration later
 d <- d[duplicate_email == 0]
 ```
 
@@ -116,8 +118,14 @@ table(d$outcome_f,factor(d$bedrooms))
 
 ggplot(d,aes(x=price))+geom_histogram()+facet_grid(~outcome_f)+labs(x="Price",y="Number") 
 
-# Sqft info has missing values => we can drop all cases (see above) but for now leave this alone
+# Sqft info has missing values => we can drop all cases (see above) but for now leave this alone or we use the clustering estimate
 # Similar but somewhat worse issue for professional, same.email info
+
+ggplot(d,aes(x=sqft))+geom_histogram()+facet_grid(~outcome_f)+labs(x="Square Feet",y="Number")
+
+cat('\nTable of Outcomes (By Professional):')
+table(d$outcome_f,factor(d$professional))
+
 
 ```
 
@@ -125,7 +133,7 @@ ggplot(d,aes(x=price))+geom_histogram()+facet_grid(~outcome_f)+labs(x="Price",y=
 
 # Simple Analysis 
 
-We do a chi-squared test of independence to see if the observations are independent. We cannot reject the hypothesis that the observations are indpendent. 
+We do a chi-squared test of independence to see if the observations are independent. We cannot reject the hypothesis that the observations are indpendent. This is true for even the professional category. 
 
 ```{r}
 
@@ -141,6 +149,11 @@ chisq.test(tbl)
 
 # On Outcome and Treatment Assignment
 tbl <- table(d$outcome_f,factor(d$treatment_assignment))
+tbl
+chisq.test(tbl)
+
+# On Outcome and Professional
+tbl <- table(d$outcome_f,d$professional)
 tbl
 chisq.test(tbl)
 
@@ -175,6 +188,12 @@ m3 <- lm(outcome~treatment*gender+factor(city)+factor(bedrooms)+price,data=d)
 stargazer(m3,type='text')
 coeftest(m3, vcovHC(m3)) # Robust se 
 
+# Model 3a-1 - Treatment & gender + all covariates including less reliable sqft and professoinal
+m3.1 <- lm(outcome~treatment*gender+factor(city)+factor(bedrooms)+price+sqft+professional,data=d)
+stargazer(m3.1,type='text')
+coeftest(m3.1, vcovHC(m3.1)) # Robust se 
+
+
 # Next we treat treatment as a categorical variable (effect might not be linear)
 
 # Model 1b - Basic model  
@@ -191,6 +210,12 @@ coeftest(m5, vcovHC(m5)) # Robust se
 m6 <- lm(outcome~treatment_f*gender+factor(city)+factor(bedrooms)+price,data=d)
 stargazer(m6,type='text')
 coeftest(m6, vcovHC(m6)) # Robust se 
+
+# Model 3b-1 - Treatment & gender + all covariates including less reliable sqft and professoinal
+m6.1 <- lm(outcome~treatment*gender+factor(city)+factor(bedrooms)+price+sqft+professional,data=d)
+stargazer(m6.1,type='text')
+coeftest(m6.1, vcovHC(m6.1)) # Robust se 
+
 
 ```
 In all models, the coefficients on treatment, whether continous or as a factor, are not statistically significant. If we add gender, there is also no evidence of a the interaction term being statistically significant. Thus, there is no evidence that exclamation points have influenced the likelihood of receiving a response. 
@@ -283,35 +308,30 @@ Once again, we cannot reject the null hypothesis of no effect.
 
 ## Other Analysis
 
-## CACE
-```{r}
-# Using Models # NEEDS WORK
-itt_fit <- lm(outcome ~ treatment, data = d)
-summary(itt_fit)
-coeftest(itt_fit, vcovHC(itt_fit))
-
-itt_d_fit <- lm(compliers ~ treatment, data = d)
-coeftest(itt_d_fit)
-coeftest(itt_d_fit,vcovHC(itt_d_fit))
-
-itt_fit$coefficients[2] / itt_d_fit$coefficients[2]
-```
-
+(1) Although not a signficant issue for this experiement we estimate the CACE. For this we define non-compliers as those for who we sent emails but did not received them - and we know this because we received a "bounced" email message. 
 
 ```{r}
+
+# We calculate the CACE manually
+
 # Manually compute CACE
-itt <- d[, mean(outcome[assigned == 1]) - mean(outcome[assigned == 0])]
+itt <- mean(d$outcome[d$treatment != 0]) - mean(d$outcome[d$treatment == 0])
+prop_treated <- 481/483
 
-prop_treated <- d[ , mean(compliers/assigned, na.rm = T)]
-prop_treated <- d[assigned == 1, mean(compliers)]
+sprintf("\nThe estimated CACE is: %.5f", itt / prop_treated)
 
-sprintf("%.10f", itt / prop_treated)
+# or 2SLS
+#itt_fit <- ivreg(outcome ~treatment,~compliers,data=d)
+#stargazer(itt_fit, type='text')
+
 ```
 
-# Added by NC. Work to find treatment response rate required to reject null
+
+(2) We also did some work Work to find treatment response rate required to reject null. That is, how much does the 
 
 ```{r}
-#create a new temp column of outcomes where the share of responses is n%
+
+# First, we use RI. create a new temp column of outcomes where the share of responses is n%
 
 #To see what treatment response rate is required for significant result, adjust this variable.
 #Found that a treatment response rate of about 0.6 would be required to observe significant result
@@ -342,6 +362,24 @@ dispdist(distout.fake, ate.fake, quantiles = c(0.025, 0.975), display.plot = TRU
 #P-value for actual data
 p.val.fake = sum(abs(distout.fake) > ate.fake) / length(distout.fake)
 p.val.fake
+
+# We can also do this using the regression estimate. For this we use the more general model, m1. Given this model, if we would want to see treatment be statistically significant we either have a larger coefficient or a lower standard error. Choosing a larger n might be one way to reduce the standard error.
+
+z <- coeftest(m1, vcovHC(m1)) # Robust se 
+
+# We want Est/Stderr > 2
+t.stderr <- z[2]/2
+std <- z[4]*sqrt(483)
+newn <-(std/t.stderr)^2
+
+sprintf("\nTo attain enough power, i.e. to drive the standard error small enough (all things unchanged), we would need a sample size of %.0f", newn)
+
+# Conversely we can also estimate the required difference in coefficient:
+
+newest <- 2*z[4]
+sprintf("\nWe need to see an effect of greater than: %.3f", newest)
+sprintf("Which is about %0.f times more than what we see currently", 2/z[6])
+
 ```
 
 # 4. Conclusion

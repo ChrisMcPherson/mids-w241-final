@@ -28,6 +28,7 @@ d <- read.csv('~/Documents/mids-w241-final/Analysis/Combined Log.csv')
 
 d <- data.table(d)
 # d <- d[complete.cases(d),] drops any row that is incomplete - too stringent since we have some cols which are not essential
+
 d <- d[!is.na(no)] # Just drop row with missing values
 # d <- d[complete.cases(d),] drops any row that is too incomplete - too stringent since we have some cols which are not essential
 #d <- d[!is.na(no)] # Just drop row with missing values
@@ -89,8 +90,8 @@ d[,c('Mean') :=NULL]
 Remove duplicate emails
 
 ```{r}
-# If duplicate, only retain first email sent, sets up for exploration later
-d <- d[duplicate_email == 0]
+# If duplicate, only retain first email sent, sets up for exploration later; in our base exploration we did not exclude duplicate emails
+#d <- d[duplicate_email == 0]
 ```
 
 
@@ -212,7 +213,7 @@ stargazer(m6,type='text')
 coeftest(m6, vcovHC(m6)) # Robust se 
 
 # Model 3b-1 - Treatment & gender + all covariates including less reliable sqft and professoinal
-m6.1 <- lm(outcome~treatment*gender+factor(city)+factor(bedrooms)+price+sqft+professional,data=d)
+m6.1 <- lm(outcome~treatment_f*gender+factor(city)+factor(bedrooms)+price+sqft+professional,data=d)
 stargazer(m6.1,type='text')
 coeftest(m6.1, vcovHC(m6.1)) # Robust se 
 

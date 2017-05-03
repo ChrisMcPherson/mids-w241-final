@@ -23,7 +23,7 @@ library(AER)
 
 rm(list=ls())
 
-d <- read.csv('~/Documents/mids-w241-final/Analysis/Combined Log.csv')
+d <- read.csv('Analysis/Combined Log.csv')
 #d <- read.csv("C:/Users/Chris/OneDrive/Documents/MIDS/WS241/final/mids-w241-final/Analysis/Combined Log.csv")
 
 d <- data.table(d)
@@ -328,7 +328,7 @@ sprintf("\nThe estimated CACE is: %.5f", itt / prop_treated)
 ```
 
 
-(2) We also did some work Work to find treatment response rate required to reject null. That is, how much does the 
+(2) We also did some work Work to find treatment response rate required to reject null. 
 
 ```{r}
 
@@ -373,12 +373,12 @@ t.stderr <- z[2]/2
 std <- z[4]*sqrt(483)
 newn <-(std/t.stderr)^2
 
-sprintf("\nTo attain enough power, i.e. to drive the standard error small enough (all things unchanged), we would need a sample size of %.0f", newn)
+sprintf("To attain enough power, i.e. to drive the standard error small enough (all things unchanged), we would need a sample size of %.0f", newn)
 
 # Conversely we can also estimate the required difference in coefficient:
 
 newest <- 2*z[4]
-sprintf("\nWe need to see an effect of greater than: %.3f", newest)
+sprintf("We need to see an effect of greater than: %.3f", newest)
 sprintf("Which is about %0.f times more than what we see currently", 2/z[6])
 
 ```

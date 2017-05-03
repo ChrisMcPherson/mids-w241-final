@@ -99,7 +99,7 @@ di[, sum(outcome > -100), by = c("treatment")]
 
 #To see what treatment response rate is required for significant result, adjust this variable.
 #Found that a treatment response rate of about 0.6 would be required to observe significant result
-treatment.response.rate <- 0.6
+treatment.response.rate <- 0.51
 di$hypothetical.outcomes.temp <- sample(c(0,1), size = nrow(d), replace = TRUE, prob = c(1-treatment.response.rate, treatment.response.rate))
 
 #create new outcome column that takes original outcomes for control group, but new hypothetical outcomes with adjusted response rate for treatment rows
@@ -122,12 +122,24 @@ ate.fake <- estate(y.fake,Z.fake,prob=probs.fake) # estimate the ATE
 
 Ys.fake <- genouts(y.fake,Z.fake,ate=0) # generate potential outcomes under sharp null of no effect
 distout.fake <- gendist(Ys.fake,perms.fake, prob=probs.fake) # generate sampling dist. under sharp null
-dispdist(distout.fake, ate.fake, quantiles = c(0.025, 0.975), display.plot = TRUE) # display characteristics of sampling dist. for inference
+dispdist(distout.fake, ate.fake, quantiles = c(0.025, 0.975), display.plot = TRUE,) # display characteristics of sampling dist. for inference
 
 #P-value for actual data
 p.val.fake = sum(abs(distout.fake) > ate.fake) / length(distout.fake)
 p.val.fake
 
 
+
+
+#***********************
+#How many non-CL mail relay emails are there
+
+#flag rows where email host is @craigslist.org
+d$flag_cl_mail_relay <- as.numeric(grepl('craigslist.org', d$reply_email_TO_BE_FILLED_IN_standard))
+
+sum(d$flag_cl_mail_relay)
+
+
+sum(d$professional) / 483
 
 
